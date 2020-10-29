@@ -1,13 +1,8 @@
 print("\033[H\033[J")
 import soundfile as sf
-import sounddevice as sd
-import matplotlib.pyplot as plt
 import numpy as np
 import os
-import tensorflow as tf
 import scipy.io as sio
-from scipy import signal
-#import pypesq
 import pystoi
 
 from utils.stft import stft
@@ -17,9 +12,10 @@ from utils.SNR import SNR
 ########## setting area begin ##########
 # paths of dataset directory (training set, validation set, test set)
 dir_gt = './audio_dataset/Valentini_2017/clean_testset_wav/'
+########## setting area end ############
+
 dir_mag = './mag_mat/'
 dir_stft = './stft_mat/'
-########## setting area end ############
 
 n_output = 256
 bs = n_output # block size
@@ -27,7 +23,7 @@ bsh = int(bs/2)
 
 something_wrong = False
 
-output_file_name = "Results.txt"
+output_file_name = "Testing_Results.txt"
 
 waveform_gt_name = os.listdir(dir_gt)
 waveform_no = len(waveform_gt_name)
@@ -58,17 +54,15 @@ for wave_i in range(waveform_no):
     SNR_time[wave_i] = SNR(waveform_gt[16:len_waveform-16],rec_waveform[16:len_waveform-16])
     stoi_time[wave_i] = pystoi.stoi(waveform_gt[16:len_waveform-16],rec_waveform.real[16:len_waveform-16],samplerate,extended=False)
     
-    print()
-    print('wave %d, recon ' %(wave_i+1))
-    print(' SNR : %.3f' %(SNR_time[wave_i]))
-    print(' stoi : %.4f\n' %(stoi_time[wave_i]))
-    
+    print('wave %d, recon ' %(wave_i+1),end='')
+    print(' SNR : %.3f' %(SNR_time[wave_i]),end='')
+    print(' stoi : %.4f' %(stoi_time[wave_i]))
 
 SNR_time_mean = SNR_time.mean()
 stoi_time_mean = stoi_time.mean()
     
-out1 = 'Avg SNR in time is %.4f dB,\n' %(SNR_time_mean)
-out2 = ' stoi is %.4f dB,\n\n' %(stoi_time_mean)
+out1 = 'Avg SNR in time is %.4f dB,' %(SNR_time_mean)
+out2 = ' stoi is %.4f dB,\n' %(stoi_time_mean)
 output_data_recon = [out1+out2][0]
 print('')
 print(output_data_recon)

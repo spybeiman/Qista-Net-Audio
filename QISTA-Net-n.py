@@ -5,20 +5,16 @@ import os
 import tensorflow as tf
 import scipy.io as sio
 import time
-from scipy import signal
 
 from utils.stft import stft
-from utils.istft import istft
 from utils.SNR import SNR
 
 ########## setting area begin ##########
-is_testing = False # False/True : Train/Test
+is_testing = True # False/True : Train/Test
 # paths of dataset directory (training set, validation set, test set)
 dir_train = './audio_dataset/Valentini_2017/'
 dir_valid = './audio_dataset/Valentini_2017/'
 dir_test = './audio_dataset/Valentini_2017/clean_testset_wav/'
-if is_testing == True:
-    cpkt_model_number = 100
 ########## setting area end ############
 
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
@@ -153,15 +149,15 @@ saver = tf.train.Saver(tf.global_variables(), max_to_keep=10000)
 sess = tf.Session(config=config)
 sess.run(init)
 
-model_dir = 'Layer_%d_ratio_%d_Model' % (max_layer, SR_ratio)
+model_dir = './model/'
 
 if is_testing == False:
     print("Start Training...")
     if not os.path.exists(model_dir):
         os.makedirs(model_dir)
-    output_file_name_SNR = "Validation_Results_%s.txt" % (model_dir)
+    output_file_name_SNR = 'Validation_Results.txt'
 else:
-    output_file_name = "Testing_Results_%s_Model_%d.txt" % (model_dir, cpkt_model_number)
+    output_file_name = 'Testing_Results.txt'
 
 if is_testing == False:
     for epoch_i in range(EpochNum):
@@ -257,7 +253,7 @@ else:
     test_data_num = len(test_data)
     rec_SNR_reim = np.zeros([test_data_num])
     
-    saver.restore(sess, './%s/Saved_Model_%d.cpkt' % (model_dir, cpkt_model_number))
+    saver.restore(sess, '%sSaved_Model_Qista-Net-n.cpkt' % (model_dir))
     
     for wave_i in range(test_data_num):
         wave_name = [dir_test + test_data[wave_i]][0]
@@ -279,8 +275,6 @@ else:
         x_stft_lr = stft(waveform_lr,bsh)
         len_sr = x_stft_sr.shape[1]
         len_lr = x_stft_lr.shape[1]
-        if len_sr != len_lr:
-            print('shape mismatch!!!, sr/lr:',x_stft_sr.shape[1],x_stft_lr.shape[1], 'file', test_data[wave_i])
     
         test_block_real_sr = np.transpose(x_stft_sr.real).reshape(len_sr,1,bs)
         test_block_imag_sr = np.transpose(x_stft_sr.imag).reshape(len_sr,1,bs)
@@ -299,19 +293,23 @@ else:
         recon_reim = Prediction_value.astype(np.float32)
         rec_SNR_reim[wave_i] = SNR(test_block_reim_sr,recon_reim)
         
-        mdic = {'stft':recon_reim}
-        name_stft = ['./stft_mat/' + test_data[wave_i] + '_recon_stft.mat'][0]
+        recon_real = recon_reim[:,0,:]
+        recon_imag = recon_reim[:,1,:]
+        recon_stft = np.transpose(recon_real + 1j * recon_imag)
+        
+        dir_stft = './stft_mat/'
+        if not os.path.exists(dir_stft):
+            os.makedirs(dir_stft)
+        mdic = {'stft':recon_stft}
+        name_stft = [dir_stft + test_data[wave_i] + '_recon_stft.mat'][0]
         sio.savemat(name_stft,mdic)
         
-        print()
-        print('wave %d, recon SNR of RI image : %.3f' %(wave_i+1, rec_SNR_reim[wave_i]))
-        print('  cost %.2f sec\n\n' %(recon_using_time))
+        print('wave %d, recon SNR of RI image : %.3f' %(wave_i+1, rec_SNR_reim[wave_i]),end='')
+        print('  cost %.2f sec' %(recon_using_time))
         
     SNR_reim_mean = rec_SNR_reim.mean()
 
-    out1 = "Avg SNR of RI image: %.2f dB,\n" % (SNR_reim_mean)
-    out2 = ' cpkt NO. : %d \n\n' % (cpkt_model_number)
-    output_data_recon = [out1 + out2][0]
+    output_data_recon = "Avg SNR of RI image: %.2f dB,\n" % (SNR_reim_mean)
     print('')
     print(output_data_recon)
     output_file = open(output_file_name, 'a')

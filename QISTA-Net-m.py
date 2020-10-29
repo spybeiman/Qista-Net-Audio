@@ -9,13 +9,11 @@ from utils.stft import stft
 from utils.SNR import SNR
 
 ########## setting area begin ##########
-is_testing = False # False/True : Train/Test
+is_testing = True # False/True : Train/Test
 # paths of dataset directory (training set, validation set, test set)
 dir_train = './audio_dataset/Valentini_2017/'
 dir_valid = './audio_dataset/Valentini_2017/'
 dir_test = './audio_dataset/Valentini_2017/clean_testset_wav/'
-if is_testing == True:
-    cpkt_model_number = 100
 ########## setting area end ############
 
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
@@ -92,15 +90,15 @@ saver = tf.train.Saver(tf.global_variables(), max_to_keep=1000)
 sess = tf.Session(config=config)
 sess.run(init)
 
-model_dir = 'Layer_%d_ratio_%d_Model' % (max_layer, SR_ratio)
+model_dir = './model/'
 
 if is_testing == False:
     print("Start Training...")
     if not os.path.exists(model_dir):
         os.makedirs(model_dir)
-    output_file_name_SNR = "Validation_Results_%s.txt" % (model_dir)
+    output_file_name_SNR = 'Validation_Results.txt'
 else:
-    output_file_name = "Testing_Results_%s_Model_%d.txt" % (model_dir, cpkt_model_number)
+    output_file_name = 'Testing_Results.txt'
 
 if is_testing == False:
     for epoch_i in range(EpochNum):
@@ -157,7 +155,7 @@ if is_testing == False:
         recon_using_time = time.time() - recon_begin
         SNR_mag_mean = np.mean(rec_SNR_mag)
            
-        saver.save(sess, './%s/Saved_Model_%d.cpkt' % (model_dir, epoch_i), write_meta_graph=False)
+        saver.save(sess, '%sSaved_Model_%d.cpkt' % (model_dir, epoch_i), write_meta_graph=False)
         input_text1 = "  Avg SNR in mag is "
         input_text2 = '[Epoch %d, SNR=%.4f]' % (epoch_i, SNR_mag_mean)
         output_data_recon = [input_text1 + input_text2 + '\n'][0]
@@ -174,7 +172,7 @@ else:
     test_data = os.listdir(dir_test)
     test_data_num = len(test_data)
     rec_SNR_mag = np.zeros([test_data_num])
-    saver.restore(sess, './%s/Saved_Model_%d.cpkt' % (model_dir, cpkt_model_number))
+    saver.restore(sess, '%sSaved_Model_Qista-Net-m.cpkt' % (model_dir))
     
     for wave_i in range(test_data_num):
         wave_name = [dir_test + test_data[wave_i]][0]
@@ -205,17 +203,20 @@ else:
         recon_using_time = time.time() - recon_time_begin
         recon_mag = Prediction_value.astype(np.float32)
         
+        dir_mag = './mag_mat/'
+        if not os.path.exists(dir_mag):
+            os.makedirs(dir_mag)
         mdic = {'mag':recon_mag}
-        name_mag = ['./mag_mat/' + test_data[wave_i] + '_recon_mag.mat'][0]
+        name_mag = [dir_mag + test_data[wave_i] + '_recon_mag.mat'][0]
         sio.savemat(name_mag,mdic)
         
         rec_SNR_mag[wave_i] = SNR(test_block_mag_sr,recon_mag)
-        print('wave %d mag recon SNR=%.3f' %(wave_i+1,rec_SNR_mag[wave_i]))
+        print('wave %d mag recon SNR=%.3f' %(wave_i+1,rec_SNR_mag[wave_i]), end='')
         print('  cost %.2f sec' %(recon_using_time))
         
     SNR_mag_mean = rec_SNR_mag.mean()
 
-    output_data_recon = "Avg SNR-mag is %.2f dB, cpkt NO. is %d \n" % (SNR_mag_mean, cpkt_model_number)
+    output_data_recon = "Avg SNR-mag is %.2f dB\n" % (SNR_mag_mean)
     print('')
     print(output_data_recon)
     output_file = open(output_file_name, 'a')
